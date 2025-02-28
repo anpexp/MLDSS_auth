@@ -1,8 +1,12 @@
 import sys
+import requests
+import base64
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QFormLayout, QLineEdit,
     QLabel, QPushButton, QTabWidget, QMessageBox
 )
+
+API_URL = "http://127.0.0.1:5000"  # Dirección de la API Flask
 
 class RegistrationTab(QWidget):
     def __init__(self):
@@ -18,31 +22,35 @@ class RegistrationTab(QWidget):
         formLayout.addRow("Nombre de Usuario:", self.username_input)
         layout.addLayout(formLayout)
 
-        # Sección para la generación de claves MLDSS (Mockup).
-        self.info_label = QLabel("Generación de claves MLDSS")
-        layout.addWidget(self.info_label)
-
         self.btn_generate_keys = QPushButton("Generar Claves")
         self.btn_generate_keys.clicked.connect(self.generate_keys)
         layout.addWidget(self.btn_generate_keys)
 
-        # Etiquetas para mostrar las claves generadas (simulación).
         self.public_key_label = QLabel("Clave Pública: [No generada]")
-        self.private_key_label = QLabel("Clave Privada: [Se guarda de forma segura en el dispositivo]")
+        self.private_key_label = QLabel("Clave Privada: [Guardada en dispositivo]")
         layout.addWidget(self.public_key_label)
         layout.addWidget(self.private_key_label)
 
         self.setLayout(layout)
 
     def generate_keys(self):
-        # Simulación de generación de claves. En una implementación real se invocarían algoritmos de criptografía post-cuántica.
         username = self.username_input.text()
-        if username:
-            self.public_key_label.setText("Clave Pública: PUBLIC_KEY_{}".format(username))
-            self.private_key_label.setText("Clave Privada: PRIVATE_KEY_{}".format(username))
-            QMessageBox.information(self, "Éxito", f"Claves generadas para el usuario: {username}")
+        if not username:
+            QMessageBox.warning(self, "Error", "Ingrese un nombre de usuario.")
+            return
+        
+        response = requests.post(f"{API_URL}/register", json={"username": username})
+        if response.status_code == 201:
+            data = response.json()
+            self.public_key = data["public_key"]
+            self.private_key = data["secret_key"]
+
+            self.public_key_label.setText(f"Clave Pública: {self.public_key[:20]}...")
+            self.private_key_label.setText(f"Clave Privada: {self.private_key[:20]}... (Guardada localmente)")
+
+            QMessageBox.information(self, "Éxito", f"Usuario '{username}' registrado.")
         else:
-            QMessageBox.warning(self, "Error", "Ingrese un nombre de usuario para generar las claves.")
+            QMessageBox.warning(self, "Error", response.json().get("error", "Error desconocido."))
 
 class LoginTab(QWidget):
     def __init__(self):
@@ -52,74 +60,83 @@ class LoginTab(QWidget):
     def initUI(self):
         layout = QVBoxLayout()
 
-        # Formulario para ingreso de credenciales.
         formLayout = QFormLayout()
         self.username_login = QLineEdit()
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.Password)
         formLayout.addRow("Nombre de Usuario:", self.username_login)
-        formLayout.addRow("Contraseña:", self.password_input)
         layout.addLayout(formLayout)
 
-        # Botón para iniciar el proceso de login.
-        self.btn_login = QPushButton("Iniciar Sesión")
-        self.btn_login.clicked.connect(self.start_login)
-        layout.addWidget(self.btn_login)
-
-        # Sección para simular la generación de un desafío criptográfico.
-        self.challenge_label = QLabel("Desafío Criptográfico: [No generado]")
-        layout.addWidget(self.challenge_label)
         self.btn_generate_challenge = QPushButton("Generar Desafío")
         self.btn_generate_challenge.clicked.connect(self.generate_challenge)
         layout.addWidget(self.btn_generate_challenge)
 
-        # Botón para simular la firma del desafío.
+        self.challenge_label = QLabel("Desafío: [No generado]")
+        layout.addWidget(self.challenge_label)
+
         self.btn_sign_challenge = QPushButton("Firmar Desafío")
         self.btn_sign_challenge.clicked.connect(self.sign_challenge)
         layout.addWidget(self.btn_sign_challenge)
 
-        # Etiqueta para mostrar el estado de verificación de la firma.
-        self.verification_label = QLabel("Estado de verificación: [Pendiente]")
+        self.verification_label = QLabel("Estado: [Pendiente]")
         layout.addWidget(self.verification_label)
 
         self.setLayout(layout)
-
-    def start_login(self):
-        # Simula la introducción de credenciales.
-        username = self.username_login.text()
-        password = self.password_input.text()
-        if username and password:
-            QMessageBox.information(self, "Login", "Credenciales recibidas. Procediendo con autenticación.")
-        else:
-            QMessageBox.warning(self, "Error", "Ingrese nombre de usuario y contraseña.")
+        self.challenge = None
+        self.private_key = None
 
     def generate_challenge(self):
-        # Simulación de generación de un desafío criptográfico.
         username = self.username_login.text()
-        if username:
-            challenge = "CHALLENGE_{}".format(username)
-            self.challenge_label.setText("Desafío Criptográfico: " + challenge)
-            QMessageBox.information(self, "Desafío", f"Desafío generado: {challenge}")
+        if not username:
+            QMessageBox.warning(self, "Error", "Ingrese un nombre de usuario.")
+            return
+        
+        response = requests.get(f"{API_URL}/challenge", params={"username": username})
+        if response.status_code == 200:
+            data = response.json()
+            self.challenge = data["challenge"]
+            self.challenge_label.setText(f"Desafío: {self.challenge[:20]}...")
+            QMessageBox.information(self, "Éxito", "Desafío generado.")
         else:
-            QMessageBox.warning(self, "Error", "Ingrese el nombre de usuario antes de generar el desafío.")
+            QMessageBox.warning(self, "Error", response.json().get("error", "Error desconocido."))
 
     def sign_challenge(self):
-        # Simulación del proceso de firma digital y verificación.
-        challenge_text = self.challenge_label.text()
-        if "CHALLENGE" in challenge_text:
-            # Se simula la validación de la firma y el proceso de verificación con retículos.
-            self.verification_label.setText("Estado de verificación: Firma válida. Acceso concedido.")
-            QMessageBox.information(self, "Autenticación", "Firma verificada. Acceso concedido.")
+        username = self.username_login.text()
+        if not username or not self.challenge:
+            QMessageBox.warning(self, "Error", "Debe generar un desafío primero.")
+            return
+        
+        # Se asume que el usuario ya generó su clave privada en el registro
+        self.private_key = requests.post(f"{API_URL}/register", json={"username": username}).json().get("secret_key")
+        if not self.private_key:
+            QMessageBox.warning(self, "Error", "No se encontró la clave privada del usuario.")
+            return
+
+        response = requests.post(f"{API_URL}/sign", json={
+            "username": username,
+            "message": self.challenge
+        })
+
+        if response.status_code == 200:
+            signature = response.json()["signature"]
+            verify_response = requests.post(f"{API_URL}/login", json={
+                "username": username,
+                "signature": signature
+            })
+
+            if verify_response.status_code == 200:
+                self.verification_label.setText("Estado: Autenticado")
+                QMessageBox.information(self, "Éxito", "Firma válida. Acceso concedido.")
+            else:
+                self.verification_label.setText("Estado: Fallido")
+                QMessageBox.warning(self, "Error", "Firma inválida.")
         else:
-            QMessageBox.warning(self, "Error", "Genere el desafío antes de firmarlo.")
+            QMessageBox.warning(self, "Error", "No se pudo firmar el desafío.")
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Sistema de Login con MLDSS (Mockup)")
+        self.setWindowTitle("Sistema de Login con MLDSS")
         self.setGeometry(100, 100, 600, 400)
 
-        # Uso de pestañas para separar la interfaz de registro y login.
         self.tabs = QTabWidget()
         self.registration_tab = RegistrationTab()
         self.login_tab = LoginTab()
